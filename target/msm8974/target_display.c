@@ -296,6 +296,19 @@ void display_init(void)
 	uint32_t panel_loop = 0;
 	uint32_t ret = 0;
 	switch (hw_id) {
+	case HW_PLARFORM_LS980:
+		panel.fb.width=1080;
+		panel.fb.height=1920;
+		panel.fb.bpp=24;
+		panel.fb.base = MIPI_FB_ADDR;
+		panel.fb.format = FB_FORMAT_RGB888;
+		panel.mdp_rev = MDP_REV_50;
+
+		if (msm_display_init(&panel)) {
+			dprintf(CRITICAL, "LS980 display init failed!\n");
+			return;
+		}
+		break;
 	case HW_PLATFORM_LIQUID:
 		edp_panel_init(&(panel.panel_info));
 		panel.clk_func = msm8974_mdss_edp_panel_clock;
