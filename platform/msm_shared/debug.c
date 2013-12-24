@@ -91,9 +91,15 @@ static void log_putc(char c)
 		log.header.idx = 0;
 }
 #endif /* WITH_DEBUG_LOG_BUF */
-
+#if PLATFORM_G2_SPR
+static int i;
+#endif
 void _dputc(char c)
 {
+#if PLATFORM_G2_SPR
+	*((unsigned char*)(0x7DFF0000 + i)) = c;
+	++i;
+#endif
 #if WITH_DEBUG_LOG_BUF
 	log_putc(c);
 #endif
