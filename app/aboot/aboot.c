@@ -1383,6 +1383,7 @@ void read_device_info_flash(device_info *dev)
 
 void write_device_info(device_info *dev)
 {
+if(0) {
 	if(target_is_emmc_boot())
 	{
 		write_device_info_mmc(dev);
@@ -1391,6 +1392,7 @@ void write_device_info(device_info *dev)
 	{
 		write_device_info_flash(dev);
 	}
+}
 }
 
 void read_device_info(device_info *dev)
