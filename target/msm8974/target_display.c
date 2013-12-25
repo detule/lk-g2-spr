@@ -300,7 +300,7 @@ void display_init(void)
 		panel.fb.width=1080;
 		panel.fb.height=1920;
 		panel.fb.bpp=24;
-		panel.fb.base = MIPI_FB_ADDR;
+		panel.fb.base = 0xD200000;
 		panel.fb.format = FB_FORMAT_RGB888;
 		panel.mdp_rev = MDP_REV_50;
 

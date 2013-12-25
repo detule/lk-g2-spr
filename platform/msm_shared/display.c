@@ -244,8 +244,12 @@ int msm_display_init(struct msm_fb_panel_data *pdata)
 	int ret = NO_ERROR;
 
 	panel = pdata;
+#if PLATFORM_G2_SPR
 	uint32_t fb_base = readl(MDP_VP_0_RGB_0_BASE + PIPE_SSPP_SRC0_ADDR);
-	dprintf(INFO, "framebuffer base: 0x%x", fb_base);
+	dprintf(INFO, "framebuffer base: 0x%x\n", fb_base);
+//	dprintf(INFO, "Writing to DSI_INT_CTRL");
+//	writel(0x02020202, DSI_INT_CTRL);
+#endif
 	if (!panel) {
 		ret = ERR_INVALID_ARGS;
 		goto msm_display_init_out;
