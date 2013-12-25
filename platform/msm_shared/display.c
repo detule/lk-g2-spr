@@ -30,8 +30,11 @@
 #include <err.h>
 #include <msm_panel.h>
 #include <mdp4.h>
+#include <mdp5.h>
+#include <reg.h>
 #include <mipi_dsi.h>
 #include <boot_stats.h>
+#include "../msm8974/include/platform/iomap.h"
 
 #ifndef DISPLAY_TYPE_HDMI
 static int hdmi_dtv_init(void)
@@ -241,6 +244,8 @@ int msm_display_init(struct msm_fb_panel_data *pdata)
 	int ret = NO_ERROR;
 
 	panel = pdata;
+	uint32_t fb_base = readl(MDP_VP_0_RGB_0_BASE + PIPE_SSPP_SRC0_ADDR);
+	dprintf(INFO, "framebuffer base: 0x%x", fb_base);
 	if (!panel) {
 		ret = ERR_INVALID_ARGS;
 		goto msm_display_init_out;
