@@ -140,7 +140,9 @@ int dgetc(char *c, bool wait)
 
 void platform_halt(void)
 {
-	if (set_download_mode(NORMAL_DLOAD) == 0)
+
+	if (0)
+//	if (set_download_mode(NORMAL_DLOAD) == 0)
 	{
 		dprintf(CRITICAL, "HALT: reboot into dload mode...\n");
 		reboot_device(0);
