@@ -43,25 +43,28 @@
  */
 uint32_t target_dev_tree_mem(void *fdt, uint32_t memory_node_offset)
 {
-    struct smem_ram_ptable ram_ptable;
+    ram_partition *ptn;
     unsigned int i;
-	int ret = 0;
+    int ret = 0;
 
-	/* Make sure RAM partition table is initialized */
-	ASSERT(smem_ram_ptable_init(&ram_ptable));
+//	ASSERT(smem_ram_ptable_init(&ram_ptable));
 
+    /* RAM partition table initialize in platform_init_mmu_mappings */
      /* Calculating the size of the mem_info_ptr */
-    for (i = 0 ; i < ram_ptable.len; i++)
+    for (i = 0 ; i < smem_get_ram_ptable_len(); i++)
     {
-        if((ram_ptable.parts[i].category == SDRAM) &&
-           (ram_ptable.parts[i].type == SYS_MEMORY))
+
+	smem_get_ram_ptable_entry(ptn, i);
+
+        if((ptn->category == SDRAM) &&
+           (ptn->type == SYS_MEMORY))
         {
 
 			/* Pass along all other usable memory regions to Linux */
 			ret = dev_tree_add_mem_info(fdt,
 										memory_node_offset,
-										ram_ptable.parts[i].start,
-										ram_ptable.parts[i].size);
+										ptn->start,
+										ptn->size);
 
 			if (ret)
 			{
