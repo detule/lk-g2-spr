@@ -1424,6 +1424,7 @@ static uint32_t mmc_card_init(struct mmc_device *dev)
 	/* TODO: Get the OCR params from target */
 	card->ocr = MMC_OCR_27_36 | MMC_OCR_SEC_MODE;
 
+	dprintf(INFO, "mmc_card_init(), start\n");
 	/* Initialize the internal MMC */
 	mmc_return = mmc_reset_card_and_send_op(host, card);
 	if (mmc_return)
@@ -1437,12 +1438,14 @@ static uint32_t mmc_card_init(struct mmc_device *dev)
 			return mmc_return;
 		}
 	}
+	dprintf(INFO, "mmc_card_init(), reset sent\n");
 
 	/* Identify (CMD2, CMD3 & CMD9) and select the card (CMD7) */
 	mmc_return = mmc_identify_card(host, card);
 	if (mmc_return)
 		return mmc_return;
 
+	dprintf(INFO, "mmc_card_init(), Identify done\n");
 	/* set interface speed */
 	if (MMC_CARD_SD(card))
 	{
@@ -1461,7 +1464,7 @@ static uint32_t mmc_card_init(struct mmc_device *dev)
 			return mmc_return;
 		}
 	}
-
+	dprintf(INFO, "mmc_card_init(), decode CSD\n");
 	/* Now get the extended CSD for the card */
 	if (MMC_CARD_MMC(card))
 	{
@@ -1495,8 +1498,9 @@ static uint32_t mmc_card_init(struct mmc_device *dev)
 		dprintf(CRITICAL, "Failure decoding card's CSD information!\n");
 		return mmc_return;
 	}
+	dprintf(INFO, "mmc_card_init(), decode CSD: done\n");
 
-
+#if !PLATFORM_G2_SPR
 	if (MMC_CARD_MMC(card))
 	{
 		/* Set the bus width based on host, target capbilities */
@@ -1585,7 +1589,7 @@ static uint32_t mmc_card_init(struct mmc_device *dev)
 			return mmc_return;
 		}
 	}
-
+#endif
 
 	/* Verify TRAN state after changing speed and bus width */
 	mmc_return = mmc_get_card_status(host, card, &status);
@@ -1653,6 +1657,7 @@ struct mmc_device *mmc_init(struct mmc_config_data *data)
 	}
 
 	/* Initialize and identify cards connected to host */
+
 	mmc_ret = mmc_card_init(dev);
 	if (mmc_ret) {
 		dprintf(CRITICAL, "Failed detecting MMC/SDC @ slot%d\n",
