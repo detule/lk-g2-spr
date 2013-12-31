@@ -63,6 +63,7 @@ static mmu_section_t mmu_section_table[] = {
 };
 
 static struct smem_ram_ptable ram_ptable;
+static void dump_ram_ptable(void);
 
 /* Boot timestamps */
 #define BS_INFO_OFFSET     (0x6B0)
@@ -100,6 +101,7 @@ void platform_early_init(void)
 void platform_init(void)
 {
 	dprintf(INFO, "platform_init()\n");
+	dump_ram_ptable();
 }
 
 uint32_t platform_get_sclk_count(void)
@@ -234,6 +236,7 @@ void platform_init_mmu_mappings(void)
 	   from the smem ram table*/
 	for(i = 0; i < ram_ptable.len; i++)
     {
+	dprintf(INFO, "Mapping ram table %d", i);
 		if(ram_ptable.parts[i].type == SYS_MEMORY)
 		{
 			if((ram_ptable.parts[i].category == SDRAM) ||
@@ -248,8 +251,13 @@ void platform_init_mmu_mappings(void)
 								sections * MB,
 								ram_ptable.parts[i].start +
 								sections * MB,
+#if PLATFORM_G2_SPR
+								(MMU_MEMORY_TYPE_NORMAL_WRITE_THROUGH | \
+								MMU_MEMORY_AP_READ_WRITE));
+#else
 								(MMU_MEMORY_TYPE_NORMAL_WRITE_THROUGH | \
 								MMU_MEMORY_AP_READ_WRITE | MMU_MEMORY_XN));
+#endif
 				}
 			}
 		}
@@ -257,6 +265,7 @@ void platform_init_mmu_mappings(void)
 	/* Configure the MMU page entries for memory read from the
 	   mmu_section_table */
 	for (i = 0; i < table_size; i++) {
+		dprintf(INFO, "Mapping mmu_section_table %d", i);
 		sections = mmu_section_table[i].num_of_sections;
 
 		while (sections--) {
@@ -267,4 +276,20 @@ void platform_init_mmu_mappings(void)
 					    mmu_section_table[i].flags);
 		}
 	}
+}
+
+static void dump_ram_ptable(void)
+{
+	unsigned i;
+
+	for(i = 0; i < ram_ptable.len; i++) {
+		dprintf(SPEW, "Partition(%d): type: %x, category: %x, start %x, size(MB) %x\n",
+			i, ram_ptable.parts[i].type, ram_ptable.parts[i].category, ram_ptable.parts[i].start, ram_ptable.parts[i].size/MB);
+		if((ram_ptable.parts[i].category == SDRAM) ||
+			(ram_ptable.parts[i].category == IMEM))
+		{
+			dprintf(SPEW, "This partition would get mapped\n");
+		}
+	}
+
 }
