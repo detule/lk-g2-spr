@@ -70,7 +70,7 @@ int _dputs(const char *str)
 
 int _dprintf(const char *fmt, ...)
 {
-	char buf[256];
+	char buf[512];
 	char ts_buf[13];
 	int err;
 
@@ -89,7 +89,7 @@ int _dprintf(const char *fmt, ...)
 
 int _dvprintf(const char *fmt, va_list ap)
 {
-	char buf[256];
+	char buf[512];
 	int err;
 
 	err = vsnprintf(buf, sizeof(buf), fmt, ap);
