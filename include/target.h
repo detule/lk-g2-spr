@@ -43,6 +43,7 @@ int target_is_emmc_boot(void);
 unsigned* target_atag_mem(unsigned* ptr);
 void target_battery_charging_enable(unsigned enable, unsigned disconnect);
 unsigned target_pause_for_battery_charge(void);
+void target_keystatus(void);
 unsigned target_baseband(void);
 void target_serialno(unsigned char *buf);
 void target_fastboot_init(void);

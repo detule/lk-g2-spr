@@ -107,6 +107,7 @@ void target_early_init(void)
 static int target_volume_up()
 {
 	uint8_t status = 0;
+#if !PLATFORM_G2_SPR
 	struct pm8x41_gpio gpio;
 
 	/* CDP vol_up seems to be always grounded. So gpio status is read as 0,
@@ -121,14 +122,17 @@ static int target_volume_up()
 	gpio.function  = 0;
 	gpio.pull      = PM_GPIO_PULL_UP_30;
 	gpio.vin_sel   = 2;
-
 	pm8x41_gpio_config(5, &gpio);
-
 	/* Wait for the pmic gpio config to take effect */
 	thread_sleep(1);
 
 	/* Get status of P_GPIO_5 */
 	pm8x41_gpio_get(5, &status);
+#else
+	/* G2_SPR gpios already configured */
+	/* Get status of P_GPIO_2 */
+	pm8x41_gpio_get(2, &status);
+#endif
 
 	return !status; /* active low */
 }
@@ -136,14 +140,49 @@ static int target_volume_up()
 /* Return 1 if vol_down pressed */
 uint32_t target_volume_down()
 {
+#if PLATFORM_G2_SPR
+	uint8_t status = 0;
+	pm8x41_gpio_get(3, &status);
+
+	return !status; /* active low */
+
+#else
 	/* Volume down button is tied in with RESIN on MSM8974. */
 	if (platform_is_8974() && (pmic_ver == PM8X41_VERSION_V2))
 		return pm8x41_v2_resin_status();
 	else
 		return pm8x41_resin_status();
+#endif
 }
 
-static void target_keystatus()
+void target_configure_gpios(void)
+{
+#if PLATFORM_G2_SPR
+	struct pm8x41_gpio gpio;
+
+	/* Configure  VOLUME DOWN GPIO */
+	gpio.direction = PM_GPIO_DIR_IN;
+	gpio.function  = 0;
+	gpio.pull      = PM_GPIO_PULL_UP_30;
+	gpio.vin_sel   = 2;
+	pm8x41_gpio_config(3, &gpio);
+
+
+	/* Configure  VOLUME UP GPIO */
+	gpio.direction = PM_GPIO_DIR_IN;
+	gpio.function  = 0;
+	gpio.pull      = PM_GPIO_PULL_UP_30;
+	gpio.vin_sel   = 2;
+	pm8x41_gpio_config(2, &gpio);
+
+	/* Wait for the pmic gpio config to take effect */
+	thread_sleep(1);
+
+#endif
+
+}
+
+void target_keystatus(void)
 {
 	keys_init();
 
@@ -330,7 +369,9 @@ void target_init(void)
 
 	/* Save PM8941 version info. */
 	pmic_ver = pm8x41_get_pmic_rev();
-
+#if PLATFORM_G2_SPR
+	target_configure_gpios();
+#endif
 	target_keystatus();
 
 	if (target_use_signed_kernel())
@@ -663,8 +704,8 @@ unsigned target_pause_for_battery_charge(void)
         /* This function will always return 0 to facilitate
          * automated testing/reboot with usb connected.
          * uncomment if this feature is needed */
-	/* if ((pon_reason == USB_CHG) || (pon_reason == DC_CHG))
-		return 1;*/
+	if ((pon_reason == USB_CHG) || (pon_reason == DC_CHG))
+		return 1;
 
 	return 0;
 }
