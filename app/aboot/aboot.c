@@ -125,6 +125,11 @@ static const char *baseband_sglte   = " androidboot.baseband=sglte";
 static const char *baseband_dsda    = " androidboot.baseband=dsda";
 static const char *baseband_dsda2   = " androidboot.baseband=dsda2";
 static const char *baseband_sglte2  = " androidboot.baseband=sglte2";
+static const char *lge_params  = " androidboot.mode lge.signed_image=true vmalloc=600m uart_console lge.rev=rev_10"; 
+static const char *lge_params2  = " lcd_maker_id=0 cont_splash_enabled=true lge.bootreason=0x0";
+static const char *lge_params3 = " lge.kcal lge.hreset=off androidboot.laf";
+static const char *lge_params4 = " androidboot.dlcomplete=0 lge.bnr androidboot.lge.lcdbreak_mode";
+static const char *lge_params5 = " maxcpus=4 usb.diag_enable=false model.name=LG-LS980 ";
 
 static unsigned page_size = 0;
 static unsigned page_mask = 0;
@@ -229,8 +234,10 @@ char* get_boot_dev_cmdline()
 unsigned char *update_cmdline(const char * cmdline)
 {
 	int cmdline_len = 0;
+	int cmdline_len_lge = 0;
 	int have_cmdline = 0;
 	unsigned char *cmdline_final = NULL;
+	unsigned char *cmdline_final_lge = NULL;
 #if UFS_SUPPORT
 	const char *boot_dev_cmdline = NULL;
 #endif
@@ -318,17 +325,19 @@ unsigned char *update_cmdline(const char * cmdline)
 	if (target_display_panel_node(display_panel_buf, MAX_PANEL_BUF_SIZE) &&
 	    strlen(display_panel_buf))
 	{
-		cmdline_len += strlen(display_cmdline);
-		cmdline_len += strlen(display_panel_buf);
+		//cmdline_len += strlen(display_cmdline);
+		//cmdline_len += strlen(display_panel_buf);
 	}
+	cmdline_len_lge = cmdline_len + strlen(lge_params) + strlen(lge_params2)+ strlen(lge_params3)+ strlen(lge_params4)+ strlen(lge_params5);
+	dprintf(INFO, "cmdline_len: %d, cmdline_len_lge: %d\n", cmdline_len, cmdline_len_lge);
 
 	if (cmdline_len > 0) {
 		const char *src;
 		unsigned char *dst = (unsigned char*) malloc((cmdline_len + 4) & (~3));
-		ASSERT(dst != NULL);
 
 		/* Save start ptr for debug print */
 		cmdline_final = dst;
+		cmdline_final_lge = (unsigned char*) malloc((cmdline_len_lge + 4) & (~3));
 		if (have_cmdline) {
 			src = cmdline;
 			while ((*dst++ = *src++));
@@ -445,18 +454,19 @@ unsigned char *update_cmdline(const char * cmdline)
 		}
 
 		if (strlen(display_panel_buf)) {
-			src = display_cmdline;
-			if (have_cmdline) --dst;
-			while ((*dst++ = *src++));
-			src = display_panel_buf;
-			if (have_cmdline) --dst;
-			while ((*dst++ = *src++));
+			//src = display_cmdline;
+			//if (have_cmdline) --dst;
+			//while ((*dst++ = *src++));
+			//src = display_panel_buf;
+			//if (have_cmdline) --dst;
+			//while ((*dst++ = *src++));
 		}
 	}
 
+	snprintf(cmdline_final_lge, cmdline_len_lge, "%s%s%s%s%s%s", cmdline_final, lge_params, lge_params2, lge_params3, lge_params4, lge_params5);	
 
-	dprintf(INFO, "cmdline: %s\n", cmdline_final);
-	return cmdline_final;
+	dprintf(INFO, "cmdline: %s\n", cmdline_final_lge);
+	return cmdline_final_lge;
 }
 
 unsigned *atag_core(unsigned *ptr)
@@ -574,6 +584,7 @@ void boot_linux(void *kernel, unsigned *tags,
 	/* Generating the Atags */
 	generate_atags(tags, final_cmdline, ramdisk, ramdisk_size);
 #endif
+	//memmove((void*)tags, (void *)0x68F00000, 2*1024*1024);
 
 	/* Perform target specific cleanup */
 	target_uninit();
@@ -689,6 +700,7 @@ int boot_linux_from_mmc(void)
 	uint32_t dt_actual;
 	uint32_t dt_hdr_size;
 #endif
+#if !PLATFORM_G2_SPR
 	if (!boot_into_recovery) {
 		memset(ffbm_mode_string, '\0', sizeof(ffbm_mode_string));
 		rcode = get_ffbm(ffbm_mode_string, sizeof(ffbm_mode_string));
@@ -699,6 +711,7 @@ int boot_linux_from_mmc(void)
 		} else
 			boot_into_ffbm = true;
 	} else
+#endif
 		boot_into_ffbm = false;
 	uhdr = (struct boot_img_hdr *)EMMC_BOOT_IMG_HEADER_ADDR;
 	if (!memcmp(uhdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
@@ -707,7 +720,11 @@ int boot_linux_from_mmc(void)
 		goto unified_boot;
 	}
 	if (!boot_into_recovery) {
+#if !PLATFORM_G2_SPR
 		index = partition_get_index("boot");
+#else
+		index = partition_get_index("spare");
+#endif
 		ptn = partition_get_offset(index);
 		if(ptn == 0) {
 			dprintf(CRITICAL, "ERROR: No boot partition found\n");
@@ -1489,6 +1506,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	char *ptr = ((char*) data);
 	int ret = 0;
 	uint8_t dtb_copied = 0;
+	char response[2000];
 
 	if (sz < sizeof(hdr)) {
 		fastboot_fail("invalid bootimage header");
@@ -1519,6 +1537,8 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	hdr->kernel_addr = VA(hdr->kernel_addr);
 	hdr->ramdisk_addr = VA(hdr->ramdisk_addr);
 	hdr->tags_addr = VA(hdr->tags_addr);
+	snprintf(response, 2000, "INFO kernel_addr: 0x%x, ramdisk_addr: 0x%x", hdr->kernel_addr, hdr->ramdisk_addr);
+	fastboot_info(response);
 
 	/* Check if the addresses in the header are valid. */
 	if (check_aboot_addr_range_overlap(hdr->kernel_addr, kernel_actual) ||
@@ -1576,7 +1596,8 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 		return -1;
 	}
 #endif
-
+	//ret = fdt_check_header((void *)0x68F00000);
+	//dprintf(INFO,"check_header, ret= %d\n", ret);
 	fastboot_okay("");
 	fastboot_stop();
 
@@ -2050,8 +2071,22 @@ void cmd_oem_devinfo(const char *arg, void *data, unsigned sz)
 	fastboot_info(response);
 	snprintf(response, sizeof(response), "\tDevice unlocked: %s", (device.is_unlocked ? "true" : "false"));
 	fastboot_info(response);
-	snprintf(response, sizeof(response), "\tCharger screen enabled: %s", (device.charger_screen_enabled ? "true" : "false"));
-	fastboot_info(response);
+	//snprintf(response, sizeof(response), "\tCharger screen enabled: %s", (device.charger_screen_enabled ? "true" : "false"));
+	//fastboot_info(response);
+
+	target_keystatus();
+	if (keys_get_state(KEY_VOLUMEUP)) {
+		fastboot_info("Volume UP pressed");
+	}
+	if (keys_get_state(KEY_VOLUMEDOWN)) {
+		fastboot_info("Volume DOWN pressed");
+	}
+
+	if (target_pause_for_battery_charge()) {
+		fastboot_info("Pause for battery charge");
+	}
+	//fastboot_okay("");
+
 	fastboot_okay("");
 }
 
@@ -2292,7 +2327,7 @@ void aboot_fastboot_register_commands(void)
 void aboot_init(const struct app_descriptor *app)
 {
 	unsigned reboot_mode = 0;
-	bool boot_into_fastboot = false;
+	bool boot_into_fastboot = true;
 
 	/* Setup page size information for nv storage */
 	if (target_is_emmc_boot())
@@ -2354,6 +2389,9 @@ void aboot_init(const struct app_descriptor *app)
 	{
 		if (target_is_emmc_boot())
 		{
+#if PLATFORM_G2_SPR
+			boot_linux_from_mmc();
+#else
 			if(emmc_recovery_init())
 				dprintf(ALWAYS,"error in emmc_recovery_init\n");
 			if(target_use_signed_kernel())
@@ -2369,6 +2407,7 @@ void aboot_init(const struct app_descriptor *app)
 				}
 			}
 			boot_linux_from_mmc();
+#endif
 		}
 		else
 		{
@@ -2423,6 +2462,7 @@ int aboot_save_boot_hash_mmc(void *kernel_addr, unsigned kernel_actual,
 		   unsigned long long ptn,
 		   unsigned dt_offset, unsigned dt_size)
 {
+#if !PLATFORM_G2_SPR
 	SHA256_CTX sha256_ctx;
 	char digest[32]={0};
 	char *buf = (char *)target_get_scratch_address();
@@ -2452,7 +2492,7 @@ int aboot_save_boot_hash_mmc(void *kernel_addr, unsigned kernel_actual,
 
 	save_kernel_hash_cmd(digest);
 	dprintf(INFO, "aboot_save_boot_hash_mmc: imagesize_actual size %d bytes.\n", (int) imagesize_actual);
-
+#endif
 	return 0;
 }
 
