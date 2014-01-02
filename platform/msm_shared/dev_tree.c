@@ -807,6 +807,24 @@ int update_device_tree(void *fdt, const char *cmdline,
 		dprintf(CRITICAL, "ERROR: Cannot update chosen node [linux,initrd-end]\n");
 		return ret;
 	}
+#if PLATFORM_G2_SPR
+	/* Get offset of the panel node */
+	ret = fdt_path_offset(fdt, "/soc/qcom,mdss_dsi_lgit_cmd");
+	if (ret < 0)
+	{
+		dprintf(CRITICAL, "Could not find panel node.\n");
+		return ret;
+	}
+
+	offset = ret;
+	/* Flip the status to okay for the panel node */
+	ret = fdt_setprop_string(fdt, offset, "status", "okay");
+	if (ret)
+	{
+		dprintf(CRITICAL, "ERROR: Cannot update panel node [status]\n");
+		return ret;
+	}
+#endif
 
 	fdt_pack(fdt);
 
