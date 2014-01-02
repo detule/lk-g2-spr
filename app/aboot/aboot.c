@@ -135,6 +135,7 @@ static unsigned page_size = 0;
 static unsigned page_mask = 0;
 static char ffbm_mode_string[FFBM_MODE_BUF_SIZE];
 static bool boot_into_ffbm;
+static bool boot_into_secondary = false;
 
 /* Assuming unauthorized kernel image by default */
 static int auth_kernel_img = 0;
@@ -719,23 +720,24 @@ int boot_linux_from_mmc(void)
 		hdr = uhdr;
 		goto unified_boot;
 	}
-	if (!boot_into_recovery) {
+	if (!boot_into_secondary) {
 #if !PLATFORM_G2_SPR
 		index = partition_get_index("boot");
 #else
-		index = partition_get_index("spare");
+		/* For LS980 boot from 'grow' in the main path */
+		index = partition_get_index("grow");
 #endif
 		ptn = partition_get_offset(index);
 		if(ptn == 0) {
-			dprintf(CRITICAL, "ERROR: No boot partition found\n");
+			dprintf(CRITICAL, "ERROR: No primary (grow) boot partition found\n");
                     return -1;
 		}
 	}
 	else {
-		index = partition_get_index("recovery");
+		index = partition_get_index("spare");
 		ptn = partition_get_offset(index);
 		if(ptn == 0) {
-			dprintf(CRITICAL, "ERROR: No recovery partition found\n");
+			dprintf(CRITICAL, "ERROR: No secondary (spare) partition found\n");
                     return -1;
 		}
 	}
@@ -744,6 +746,8 @@ int boot_linux_from_mmc(void)
 		dprintf(CRITICAL, "ERROR: Cannot read boot image header\n");
                 return -1;
 	}
+
+	dprintf("grow header magic: %s\n", hdr->magic);
 
 	if (memcmp(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
 		dprintf(CRITICAL, "ERROR: Invalid boot image header\n");
@@ -972,11 +976,13 @@ int boot_linux_from_mmc(void)
 				dprintf(CRITICAL, "ERROR: Cannot read device tree\n");
 				return -1;
 			}
+#if !PLATFORM_G2_SPR
 			#ifdef TZ_SAVE_KERNEL_HASH
 			aboot_save_boot_hash_mmc(hdr->kernel_addr, kernel_actual,
 				       hdr->ramdisk_addr, ramdisk_actual,
 				       ptn, offset, hdr->dt_size);
 			#endif /* TZ_SAVE_KERNEL_HASH */
+#endif
 
 		} else {
 			/*
@@ -2327,7 +2333,7 @@ void aboot_fastboot_register_commands(void)
 void aboot_init(const struct app_descriptor *app)
 {
 	unsigned reboot_mode = 0;
-	bool boot_into_fastboot = true;
+	bool boot_into_fastboot = false;
 
 	/* Setup page size information for nv storage */
 	if (target_is_emmc_boot())
@@ -2349,7 +2355,8 @@ void aboot_init(const struct app_descriptor *app)
 	dprintf(SPEW,"serial number: %s\n",sn_buf);
 
 	memset(display_panel_buf, '\0', MAX_PANEL_BUF_SIZE);
-
+	/* Not allowing reboots to download mode for now */
+#if !PLATFORM_G2_SPR
 	/* Check if we should do something other than booting up */
 	if (keys_get_state(KEY_VOLUMEUP) && keys_get_state(KEY_VOLUMEDOWN))
 	{
@@ -2365,13 +2372,14 @@ void aboot_init(const struct app_descriptor *app)
 		}
 		boot_into_fastboot = true;
 	}
+#endif
 	if (!boot_into_fastboot)
 	{
-		if (keys_get_state(KEY_HOME) || keys_get_state(KEY_VOLUMEUP))
-			boot_into_recovery = 1;
-		if (!boot_into_recovery &&
-			(keys_get_state(KEY_BACK) || keys_get_state(KEY_VOLUMEDOWN)))
+		if (keys_get_state(KEY_VOLUMEUP))
 			boot_into_fastboot = true;
+		if (!boot_into_fastboot &&
+			(keys_get_state(KEY_VOLUMEDOWN)))
+			boot_into_secondary = true;
 	}
 	#if NO_KEYPAD_DRIVER
 	if (fastboot_trigger())
@@ -2380,7 +2388,9 @@ void aboot_init(const struct app_descriptor *app)
 
 	reboot_mode = check_reboot_mode();
 	if (reboot_mode == RECOVERY_MODE) {
+#if !PLATFORM_G2_SPR
 		boot_into_recovery = 1;
+#endif
 	} else if(reboot_mode == FASTBOOT_MODE) {
 		boot_into_fastboot = true;
 	}
